@@ -7,7 +7,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores.chroma import Chroma
 
 
-os.environ["OPENAI_API_KEY"] = "voc-16036678971266772004727669e078c31a1e7.46148998"
+os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY"
 os.environ["OPENAI_API_BASE"] = "https://openai.vocareum.com/v1"
 
 # Initialize the LLM
