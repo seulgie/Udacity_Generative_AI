@@ -65,6 +65,7 @@ To run the script, simply execute:
 
 ```bash
 python main.py
+```
 
 ## Files
 - `main.py`: The main script to generate listings, store them in a vector database, and query listings based on user preferences.
