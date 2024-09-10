@@ -12,6 +12,11 @@ os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY"
 # Initialize the OpenAI LLM
 llm = OpenAI(model_name='gpt-3.5-turbo', temperature=0)
 
+""" test 
+response = llm("What are some innovative features of a real estate app?")
+print(response) # Print out the response to see the structure
+"""
+
 def generate_listing(neighborhood, price, bedrooms, bathrooms, house_size):
     """
     Generate a real estate listing based on provided details.
