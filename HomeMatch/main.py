@@ -8,6 +8,7 @@ from langchain.vectorstores.chroma import Chroma
 
 # Set environment variables for OpenAI API
 os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY"
+os.environ["OPENAI_API_BASE"] = "https://openai.vocareum.com/v1"
 
 # Initialize the OpenAI LLM
 llm = OpenAI(model_name='gpt-3.5-turbo', temperature=0)
