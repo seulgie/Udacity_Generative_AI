@@ -35,12 +35,6 @@ This project provides a Python-based real estate listing generator and semantic 
     pip install -r requirements.txt
     ```
 
-3. Set your OpenAI API key as an environment variable:
-
-    ```bash
-    export OPENAI_API_KEY="your-api-key"
-    ```
-
 ## Usage
 
 ### 1. Generate Real Estate Listings
