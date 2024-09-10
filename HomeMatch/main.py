@@ -1,292 +1,251 @@
 import os
-from langchain.llms import OpenAI
-import pandas as pd
 import re
+import pandas as pd
 import chromadb
+from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores.chroma import Chroma
 
-
+# Set environment variables for OpenAI API
 os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY"
-os.environ["OPENAI_API_BASE"] = "https://openai.vocareum.com/v1"
 
-# Initialize the LLM
+# Initialize the OpenAI LLM
 llm = OpenAI(model_name='gpt-3.5-turbo', temperature=0)
 
-""" test 
-response = llm("What are some innovative features of a real estate app?")
-print(response) # Print out the response to see the structure
-"""
-
-# Create a function to generate real estate listings
 def generate_listing(neighborhood, price, bedrooms, bathrooms, house_size):
-    prompt = f"""
-    Generate a real estate listing with the following details:
-    Neighborhood: {neighborhood}
-    Price: ${price}
-    Bedrooms: {bedrooms}
-    Bathrooms: {bathrooms}
-    House Size: {house_size} sqft
-    
-    Provide a property description and a neighborhood description.
     """
-    return llm(prompt)
+    Generate a real estate listing based on provided details.
 
-# List of neighborhoods and property details
-listings_data = [
-    {"neighborhood": "Green Oaks", "price": 800000, "bedrooms": 3, "bathrooms": 2, "house_size": 2000},
-    {"neighborhood": "Sunnybrook", "price": 1200000, "bedrooms": 4, "bathrooms": 3, "house_size": 3500},
-    {"neighborhood": "Maple Ridge", "price": 950000, "bedrooms": 4, "bathrooms": 2.5, "house_size": 2800},
-    {"neighborhood": "Harbor View", "price": 600000, "bedrooms": 2, "bathrooms": 2, "house_size": 1500},
-    {"neighborhood": "Cedar Hills", "price": 500000, "bedrooms": 3, "bathrooms": 1.5, "house_size": 1700},
-    {"neighborhood": "Lakeside Estates", "price": 1500000, "bedrooms": 5, "bathrooms": 4, "house_size": 4200},
-    {"neighborhood": "Willow Springs", "price": 780000, "bedrooms": 3, "bathrooms": 2, "house_size": 2100},
-    {"neighborhood": "Riverstone", "price": 1250000, "bedrooms": 4, "bathrooms": 3.5, "house_size": 3300},
-    {"neighborhood": "Mountain View", "price": 850000, "bedrooms": 3, "bathrooms": 2.5, "house_size": 2400},
-    {"neighborhood": "Pine Grove", "price": 675000, "bedrooms": 3, "bathrooms": 2, "house_size": 1900},
-]
+    :param neighborhood: Neighborhood name.
+    :param price: Price of the property.
+    :param bedrooms: Number of bedrooms.
+    :param bathrooms: Number of bathrooms.
+    :param house_size: Size of the house in sqft.
+    :return: Generated property description and neighborhood description.
+    """
+    prompt = (f"Generate a real estate listing with the following details:\n"
+              f"Neighborhood: {neighborhood}\n"
+              f"Price: ${price}\n"
+              f"Bedrooms: {bedrooms}\n"
+              f"Bathrooms: {bathrooms}\n"
+              f"House Size: {house_size} sqft\n\n"
+              "Provide a property description and a neighborhood description.")
+    return llm(prompt).strip()
 
-# Store the listings
-listings = []
+def add_listing_to_chromadb(collection, listing_id, description, metadata, embedding_model):
+    """
+    Add a listing to the ChromaDB collection.
 
-# Generate listings for each property
-for data in listings_data:
-    neighborhood = data["neighborhood"]
-    price = data["price"]
-    bedrooms = data["bedrooms"]
-    bathrooms = data["bathrooms"]
-    house_size = data["house_size"]
-    
-    print(f"Generating listing for {neighborhood}...")
-    listing_text = generate_listing(neighborhood, price, bedrooms, bathrooms, house_size)
-    
-    listings.append({
-        "neighborhood": neighborhood,
-        "price": price,
-        "bedrooms": bedrooms,
-        "bathrooms": bathrooms,
-        "house_size": house_size,
-        "description": listing_text.strip()  # Clean up the generated text
-    })
-
-# Convert to a DataFrame to view results
-df_listings = pd.DataFrame(listings)
-print(df_listings)
-
-# Optionally, save the listings to a CSV for future use
-df_listings.to_csv("real_estate_listings.csv", index=False)
-
-# Initialize ChromaDB client
-client = chromadb.client()
-
-# Initialize OpenAI embeddings model
-embedding_model = OpenAIEmbeddings()
-
-# Set up ChromaDB collection to store listings and embeddings
-collection = client.create_collection("real_estate_listings")
-
-# Load real estate listings (from the previously generated listings csv file)
-listings_df = pd.read_csv("real_estate_listings.csv")
-
-# Function to add listings to the ChromaDB collection
-def add_listing_to_chromadb(collection, listing_id, description, metadata):
-    # Generate embedding for the listing description
+    :param collection: ChromaDB collection instance.
+    :param listing_id: Unique ID for the listing.
+    :param description: Description of the property.
+    :param metadata: Metadata related to the property.
+    :param embedding_model: Model used for generating embeddings.
+    """
     embedding = embedding_model.embed([description])[0]
-
-    # Add the embedding and metadata to ChromaDB collection
     collection.add(
-        ids=[listing_id],           # Unique ID for the listing
-        embeddings=[embedding],     # The embedding (vector representation)
-        metadatas=[metadata]        # Metadata for easier querying (e.g., neighborhood, price)
+        ids=[listing_id],
+        embeddings=[embedding],
+        metadatas=[metadata]
     )
 
-# Iterate through listings and store each in the vector database
-for index, row in listings_df.iterrows():
-    metadata = {
-        "neighborhood": row["neighborhood"],
-        "price": row["price"],
-        "bedrooms": row["bedrooms"],
-        "bathrooms": row["bathrooms"],
-        "house_size": row["house_size"]
-    }
-    
-    description = row["description"]
-    listing_id = f"listing_{index}"  # Create a unique ID for each listing
-
-    # Add the listing to the vector database
-    add_listing_to_chromadb(collection, listing_id, description, metadata)
-
-print("All listings have been stored in the vector database.")
-
-# Retrieve a list of all stored listings
-results = collection.get()
-print("Stored listings in vector database:", results)
-
-# Define buyer questions
-questions = [
-    "How big do you want your house to be?",
-    "What are the 3 most important things for you in choosing this property?",
-    "Which amenities would you like?",
-    "Which transportation options are important to you?",
-    "How urban do you want your neighborhood to be?"
-]
-
-# Sample hard-coded answers (this can be interactive or collected from users via an input form)
-answers = [
-    "A comfortable three-bedroom house with a spacious kitchen and a cozy living room.",
-    "A quiet neighborhood, good local schools, and convenient shopping options.",
-    "A backyard for gardening, a two-car garage, and a modern, energy-efficient heating system.",
-    "Easy access to a reliable bus line, proximity to a major highway, and bike-friendly roads.",
-    "A balance between suburban tranquility and access to urban amenities like restaurants and theaters."
-]
-
-# Function to parse preferences from answers
 def parse_preferences(answers):
+    """
+    Parse user preferences from answers.
+
+    :param answers: List of answers from the user.
+    :return: Dictionary containing parsed preferences.
+    """
     preferences = {}
 
-    # Extract the number of bedrooms from the house size answer
     size_pattern = r"(\d+)-?bedroom"
     match = re.search(size_pattern, answers[0], re.IGNORECASE)
-    if match:
-        preferences["bedrooms"] = int(match.group(1))
-    else:
-        preferences["bedrooms"] = "Not specified"
+    preferences["bedrooms"] = int(match.group(1)) if match else "Not specified"
 
-    # Extract important features for the property
     preferences["important_features"] = answers[1].split(", ")
-
-    # Extract amenities from the answers
     preferences["amenities"] = answers[2].split(", ")
-
-    # Extract transportation preferences
     preferences["transportation"] = answers[3].split(", ")
-
-    # Extract neighborhood preference
     preferences["urban_preference"] = answers[4]
 
     return preferences
 
-# Parse the answers into structured preferences
-user_preferences = parse_preferences(answers)
-print("Parsed User Preferences:", user_preferences)
-
-
 def query_vector_database(preferences, collection):
-    # Build a basic query based on bedrooms and amenities (example)
+    """
+    Query the vector database based on user preferences.
+
+    :param preferences: User preferences.
+    :param collection: ChromaDB collection instance.
+    :return: List of matching listings.
+    """
     query = {
         "bedrooms": preferences["bedrooms"],
         "amenities": preferences["amenities"]
     }
-    
-    # Query the vector database
+
     results = collection.query(
-        query_text=preferences["important_features"],  # Query based on embedding
-        n_results=5,  # Number of results to return
-        where=query  # Apply filters (bedrooms, amenities, etc.)
+        query_text=preferences["important_features"],
+        n_results=5,
+        where=query
     )
 
     return results
 
-# Simulate a query based on user preferences
-matching_listings = query_vector_database(user_preferences, collection)
-print("Matching Listings:", matching_listings)
-
 def semantic_search_with_filters(preferences, collection, embedding_model):
     """
-    Perform a semantic search on the vector database using buyer's preferences.
-    
-    :param preferences: The parsed user preferences in structured format.
-    :param collection: The ChromaDB collection containing the listings and their embeddings.
-    :param embedding_model: The model used to generate embeddings for queries.
-    :return: A list of matching listings.
-    """
-    
-    # Combine user preferences into a single query text for semantic search
-    search_query = f"""
-    I'm looking for a {preferences['bedrooms']}-bedroom house with features such as {', '.join(preferences['important_features'])}.
-    It should include amenities like {', '.join(preferences['amenities'])}. 
-    I'm particularly interested in a neighborhood that offers {preferences['urban_preference']} and good transportation options, including {', '.join(preferences['transportation'])}.
-    """
+    Perform a semantic search on the vector database with filters.
 
-    # Generate an embedding for the user's query
+    :param preferences: Parsed user preferences.
+    :param collection: ChromaDB collection instance.
+    :param embedding_model: Model used for generating query embeddings.
+    :return: List of matching listings.
+    """
+    search_query = (f"I'm looking for a {preferences['bedrooms']}-bedroom house with features such as "
+                    f"{', '.join(preferences['important_features'])}. It should include amenities like "
+                    f"{', '.join(preferences['amenities'])}. I'm particularly interested in a neighborhood "
+                    f"that offers {preferences['urban_preference']} and good transportation options, including "
+                    f"{', '.join(preferences['transportation'])}.")
+
     query_embedding = embedding_model.embed([search_query])[0]
 
-    # Define filters for metadata (e.g., bedrooms, bathrooms, price range)
     metadata_filters = {
         "bedrooms": preferences["bedrooms"]
     }
 
-    # Perform the semantic search with metadata filters
     search_results = collection.query(
-        query_embeddings=[query_embedding],   # Embedding for matching listings
-        where=metadata_filters,               # Filter listings based on number of bedrooms, etc.
-        n_results=5                           # Return top 5 matching listings
+        query_embeddings=[query_embedding],
+        where=metadata_filters,
+        n_results=5
     )
 
     return search_results
 
 def create_personalized_prompt(listing, preferences):
     """
-    Create a prompt to personalize the property description.
-    
-    :param listing: A dictionary containing the property details and original description.
-    :param preferences: The buyer's preferences.
-    :return: A string prompt for the LLM.
+    Create a personalized prompt for the property description.
+
+    :param listing: Dictionary containing property details and description.
+    :param preferences: User preferences.
+    :return: String prompt for the LLM.
     """
-    
     original_description = listing['description']
-    
-    prompt = f"""
-    Personalize the following property description to appeal to a buyer who is looking for a house with the following preferences:
-    
-    Preferences:
-    - Number of Bedrooms: {preferences['bedrooms']}
-    - Important Features: {', '.join(preferences['important_features'])}
-    - Desired Amenities: {', '.join(preferences['amenities'])}
-    - Transportation Needs: {', '.join(preferences['transportation'])}
-    - Urban Preference: {preferences['urban_preference']}
-    
-    Original Description:
-    {original_description}
-    
-    Personalized Description:
-    """
+
+    prompt = (f"Personalize the following property description to appeal to a buyer who is looking for a house "
+              f"with the following preferences:\n\n"
+              f"Preferences:\n"
+              f"- Number of Bedrooms: {preferences['bedrooms']}\n"
+              f"- Important Features: {', '.join(preferences['important_features'])}\n"
+              f"- Desired Amenities: {', '.join(preferences['amenities'])}\n"
+              f"- Transportation Needs: {', '.join(preferences['transportation'])}\n"
+              f"- Urban Preference: {preferences['urban_preference']}\n\n"
+              f"Original Description:\n{original_description}\n\n"
+              f"Personalized Description:\n")
     
     return prompt
 
 def personalize_listing_description(listing, preferences):
     """
     Generate a personalized description for a property listing.
-    
-    :param listing: A dictionary containing the property details and original description.
-    :param preferences: The buyer's preferences.
-    :return: A personalized description of the property.
+
+    :param listing: Dictionary containing property details and description.
+    :param preferences: User preferences.
+    :return: Personalized property description.
     """
-    
-    # Create a prompt for the LLM
     prompt = create_personalized_prompt(listing, preferences)
-    
-    # Generate personalized description using LLM
     response = llm(prompt)
-    
-    # Extract the personalized description from the LLM response
-    personalized_description = response['text'].strip()
-    
-    return personalized_description
+    return response.strip()
 
-# Example usage with a sample listing and preferences
-example_listing = {
-    'description': 'This charming 3-bedroom home boasts beautiful hardwood floors, an open-concept kitchen, and a spacious backyard.'
-}
+def main():
+    # List of neighborhoods and property details
+    listings_data = [
+        {"neighborhood": "Green Oaks", "price": 800000, "bedrooms": 3, "bathrooms": 2, "house_size": 2000},
+        {"neighborhood": "Sunnybrook", "price": 1200000, "bedrooms": 4, "bathrooms": 3, "house_size": 3500},
+        {"neighborhood": "Maple Ridge", "price": 950000, "bedrooms": 4, "bathrooms": 2.5, "house_size": 2800},
+        {"neighborhood": "Harbor View", "price": 600000, "bedrooms": 2, "bathrooms": 2, "house_size": 1500},
+        {"neighborhood": "Cedar Hills", "price": 500000, "bedrooms": 3, "bathrooms": 1.5, "house_size": 1700},
+        {"neighborhood": "Lakeside Estates", "price": 1500000, "bedrooms": 5, "bathrooms": 4, "house_size": 4200},
+        {"neighborhood": "Willow Springs", "price": 780000, "bedrooms": 3, "bathrooms": 2, "house_size": 2100},
+        {"neighborhood": "Riverstone", "price": 1250000, "bedrooms": 4, "bathrooms": 3.5, "house_size": 3300},
+        {"neighborhood": "Mountain View", "price": 850000, "bedrooms": 3, "bathrooms": 2.5, "house_size": 2400},
+        {"neighborhood": "Pine Grove", "price": 675000, "bedrooms": 3, "bathrooms": 2, "house_size": 1900},
+    ]
 
-example_preferences = {
-    'bedrooms': 3,
-    'important_features': ['quiet neighborhood', 'good local schools', 'convenient shopping options'],
-    'amenities': ['backyard for gardening', 'two-car garage', 'energy-efficient heating system'],
-    'transportation': ['easy access to bus line', 'proximity to major highway', 'bike-friendly roads'],
-    'urban_preference': 'a balance between suburban tranquility and access to urban amenities'
-}
+    # Generate listings for each property
+    listings = []
+    for data in listings_data:
+        print(f"Generating listing for {data['neighborhood']}...")
+        listing_text = generate_listing(
+            data["neighborhood"],
+            data["price"],
+            data["bedrooms"],
+            data["bathrooms"],
+            data["house_size"]
+        )
+        listings.append({
+            "neighborhood": data["neighborhood"],
+            "price": data["price"],
+            "bedrooms": data["bedrooms"],
+            "bathrooms": data["bathrooms"],
+            "house_size": data["house_size"],
+            "description": listing_text
+        })
 
-personalized_description = personalize_listing_description(example_listing, example_preferences)
-print("Personalized Description:", personalized_description)
+    # Convert to a DataFrame and save to CSV
+    df_listings = pd.DataFrame(listings)
+    df_listings.to_csv("listings.csv", index=False)
 
+    # Initialize ChromaDB client and embedding model
+    client = chromadb.client()
+    embedding_model = OpenAIEmbeddings()
+    collection = client.create_collection("real_estate_listings")
+
+    # Load real estate listings from CSV file
+    listings_df = pd.read_csv("listings.csv")
+
+    # Add listings to the vector database
+    for index, row in listings_df.iterrows():
+        metadata = {
+            "neighborhood": row["neighborhood"],
+            "price": row["price"],
+            "bedrooms": row["bedrooms"],
+            "bathrooms": row["bathrooms"],
+            "house_size": row["house_size"]
+        }
+        description = row["description"]
+        listing_id = f"listing_{index}"
+        add_listing_to_chromadb(collection, listing_id, description, metadata, embedding_model)
+
+    print("All listings have been stored in the vector database.")
+
+    # Define and parse user preferences
+    answers = [
+        "A comfortable three-bedroom house with a spacious kitchen and a cozy living room.",
+        "A quiet neighborhood, good local schools, and convenient shopping options.",
+        "A backyard for gardening, a two-car garage, and a modern, energy-efficient heating system.",
+        "Easy access to a reliable bus line, proximity to a major highway, and bike-friendly roads.",
+        "A balance between suburban tranquility and access to urban amenities like restaurants and theaters."
+    ]
+    user_preferences = parse_preferences(answers)
+    print("Parsed User Preferences:", user_preferences)
+
+    # Query the vector database
+    matching_listings = query_vector_database(user_preferences, collection)
+    print("Matching Listings:", matching_listings)
+
+    # Example usage with a sample listing and preferences
+    example_listing = {
+        'description': 'This charming 3-bedroom home boasts beautiful hardwood floors, an open-concept kitchen, and a spacious backyard.'
+    }
+
+    example_preferences = {
+        'bedrooms': 3,
+        'important_features': ['quiet neighborhood', 'good local schools', 'convenient shopping options'],
+        'amenities': ['backyard for gardening', 'two-car garage', 'energy-efficient heating system'],
+        'transportation': ['easy access to bus line', 'proximity to major highway', 'bike-friendly roads'],
+        'urban_preference': 'a balance between suburban tranquility and access to urban amenities'
+    }
+
+    personalized_description = personalize_listing_description(example_listing, example_preferences)
+    print("Personalized Description:", personalized_description)
+
+if __name__ == "__main__":
+    main()
