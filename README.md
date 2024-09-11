@@ -1,3 +1,3 @@
 # Generative-AI
-<img src="./udacity genai.png" alt="Udacity GenAI" width="400">
+<img src="./udacity genai.png" alt="Udacity GenAI" width="1000">
 
