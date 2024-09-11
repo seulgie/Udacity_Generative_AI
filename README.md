@@ -1,3 +1,3 @@
 # Generative-AI
-Udacity Nanodegree - Generative AI
-![Alt text](./udacity_genai.png)
+<img src="./udacity genai.png" alt="Udacity GenAI" width="400">
+
