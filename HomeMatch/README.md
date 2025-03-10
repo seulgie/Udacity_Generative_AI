@@ -20,20 +20,6 @@ This project provides a Python-based real estate listing generator and semantic 
   - `langchain`
   - `re`
 
-## Installation
-
-1. Clone this repository:
-
-    ```bash
-    git clone https://github.com/yourusername/real-estate-listing.git
-    cd real-estate-listing
-    ```
-
-2. Install the required Python packages:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
 
 ## Usage
 
